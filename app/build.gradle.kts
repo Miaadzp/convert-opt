@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ir.miaad.optionheatmap"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ir.miaad.optionheatmap"

@@ -1,10 +1,11 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "ir.miaad.optionheatmap.core"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26
@@ -22,4 +23,5 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 }

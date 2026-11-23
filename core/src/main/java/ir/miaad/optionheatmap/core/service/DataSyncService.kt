@@ -9,7 +9,6 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
-import ir.miaad.optionheatmap.R
 import kotlinx.coroutines.*
 
 class DataSyncService : Service() {
@@ -51,7 +50,7 @@ class DataSyncService : Service() {
             while (isActive) {
                 counter++
                 updateNotification("رصد فعال • دور $counter")
-                delay(10_000) // هر ۱۰ ثانیه
+                delay(10_000)
             }
         }
     }
@@ -65,7 +64,6 @@ class DataSyncService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // وقتی روی اعلان زد، اپ باز شود
         val openIntent = packageManager.getLaunchIntentForPackage(packageName)
         val openPendingIntent = PendingIntent.getActivity(
             this, 0, openIntent,
@@ -106,7 +104,7 @@ class DataSyncService : Service() {
             PowerManager.PARTIAL_WAKE_LOCK,
             "OptionHeatmap::DataSyncWakeLock"
         ).apply {
-            acquire(10 * 60 * 60 * 1000L) // حداکثر ۱۰ ساعت
+            acquire(10 * 60 * 60 * 1000L)
         }
     }
 

@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ir.miaad.optionheatmap.flowsmart"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 26

@@ -9,7 +9,7 @@
 
     <application
         android:allowBackup="true"
-        android:label="Option Heatmap"
+        android:label="زنجیره آپشن Heatmap"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="true">
@@ -23,6 +23,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name="ir.miaad.optionheatmap.core.service.DataSyncService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

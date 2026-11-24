@@ -19,6 +19,24 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Generate Gradle wrapper jar
+        run: |
+          mkdir -p /tmp/wrapgen
+          cd /tmp/wrapgen
+          touch settings.gradle
+          gradle wrapper --gradle-version 9.6.0
+          mkdir -p "$GITHUB_WORKSPACE/gradle/wrapper"
+          cp gradle/wrapper/gradle-wrapper.jar "$GITHUB_WORKSPACE/gradle/wrapper/gradle-wrapper.jar"
+          ls -l "$GITHUB_WORKSPACE/gradle/wrapper"
+
+      - name: Upload wrapper jar (to commit later)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-wrapper-jar
+          path: gradle/wrapper/gradle-wrapper.jar
 
       - name: Make gradlew executable
         run: chmod +x gradlew
@@ -31,3 +49,4 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+          

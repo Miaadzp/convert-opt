@@ -1,6 +1,7 @@
 package ir.miaad.optionheatmap.core.network
 
 import ir.miaad.optionheatmap.core.diagnostics.DiagnosticLog
+import ir.miaad.optionheatmap.core.BuildConfig
 import ir.miaad.optionheatmap.core.monitor.BestLimit1
 import ir.miaad.optionheatmap.core.monitor.DayLimits
 import ir.miaad.optionheatmap.core.monitor.PriceInfo
@@ -8,7 +9,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
-import java.net.HttpURLConnection
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.net.URL
 import java.net.URLEncoder
 
@@ -19,6 +25,7 @@ class TsetmcApi {
         private const val BASE_URL = "https://cdn.tsetmc.com/api/"
         private const val TIMEOUT_MS = 6_000
         private const val TAG = "OH-DIAG-HTTP"
+        private val DEBUG_TRUST_ALL_HOSTS = setOf("cdn.tsetmc.com")
     }
 
     suspend fun searchInstruments(symbol: String): List<InstrumentSearchHit> {
@@ -89,7 +96,12 @@ class TsetmcApi {
         var bodyBytes = -1
         DiagnosticLog.i(TAG, "HTTP_START time=$startedAt url=$url")
 
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        val connection = (URL(url).openConnection() as HttpsURLConnection).apply {
+            // Debug-only certificate-chain bypass, restricted to the exact TSETMC API host.
+            // Hostname verification is deliberately left at the platform default.
+            if (BuildConfig.TSETMC_TRUST_ALL && urlHostIsAllowedForDebug(url)) {
+                sslSocketFactory = debugTrustAllSocketFactory
+            }
             requestMethod = "GET"
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS
@@ -134,6 +146,21 @@ class TsetmcApi {
         }
     }
 
+    private fun urlHostIsAllowedForDebug(url: String): Boolean {
+        val host = URL(url).host.lowercase()
+        return host in DEBUG_TRUST_ALL_HOSTS
+    }
+
+    private val debugTrustAllSocketFactory by lazy {
+        val trustManager = object : X509TrustManager {
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+        }
+        SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<TrustManager>(trustManager), SecureRandom())
+        }.socketFactory
+    }
     private fun requiredDouble(json: JSONObject, key: String): Double {
         if (!json.has(key) || json.isNull(key)) throw IOException("فیلد $key در پاسخ موجود نیست")
         val value = json.optDouble(key, Double.NaN)

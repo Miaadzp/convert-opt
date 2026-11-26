@@ -1,6 +1,6 @@
 package ir.miaad.optionheatmap.core.network
 
-import android.util.Log
+import ir.miaad.optionheatmap.core.diagnostics.DiagnosticLog
 import ir.miaad.optionheatmap.core.monitor.BestLimit1
 import ir.miaad.optionheatmap.core.monitor.DayLimits
 import ir.miaad.optionheatmap.core.monitor.PriceInfo
@@ -87,7 +87,7 @@ class TsetmcApi {
         var statusCode: Int? = null
         var contentType: String? = null
         var bodyBytes = -1
-        Log.i(TAG, "HTTP_START time=$startedAt url=$url")
+        DiagnosticLog.i(TAG, "HTTP_START time=$startedAt url=$url")
 
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -104,7 +104,7 @@ class TsetmcApi {
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             bodyBytes = body.toByteArray(Charsets.UTF_8).size
             val duration = System.currentTimeMillis() - startedAt
-            Log.i(TAG, "HTTP_RESPONSE url=$url status=$statusCode contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration")
+            DiagnosticLog.i(TAG, "HTTP_RESPONSE url=$url status=$statusCode contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration")
 
             if (statusCode !in 200..299) {
                 throw IOException("TSETMC HTTP $statusCode: ${body.take(160)}")
@@ -114,19 +114,19 @@ class TsetmcApi {
             val json = try {
                 JSONObject(body)
             } catch (parseError: Exception) {
-                Log.e(TAG, "JSON_PARSE_ERROR url=$url bodyBytes=$bodyBytes", parseError)
+                DiagnosticLog.e(TAG, "JSON_PARSE_ERROR url=$url bodyBytes=$bodyBytes", parseError)
                 throw parseError
             }
-            Log.i(TAG, "JSON_PARSE_OK url=$url rootKeys=${json.keys().asSequence().toList()}")
+            DiagnosticLog.i(TAG, "JSON_PARSE_OK url=$url rootKeys=${json.keys().asSequence().toList()}")
             json
         } catch (error: Exception) {
             val duration = System.currentTimeMillis() - startedAt
             val causes = generateSequence(error as Throwable?) { it.cause }
                 .map { "${it.javaClass.name}: ${it.message}" }
                 .joinToString(" <- ")
-            Log.e(
+            DiagnosticLog.e(
                 TAG,
-                "HTTP_FAILURE url=$url status=${statusCode ?: "UNAVAILABLE"} contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration exception=${error.javaClass.name} message=${error.message} causes=$causes\n${Log.getStackTraceString(error)}"
+                "HTTP_FAILURE url=$url status=${statusCode ?: "UNAVAILABLE"} contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration exception=${error.javaClass.name} message=${error.message} causes=$causes\n${DiagnosticLog.stackTrace(error)}"
             )
             throw error
         } finally {

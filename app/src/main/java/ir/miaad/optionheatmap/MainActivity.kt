@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -13,17 +13,27 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import ir.miaad.optionheatmap.core.service.DataSyncService
+import ir.miaad.optionheatmap.core.diagnostics.DiagnosticLog
 
 class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        Log.i(TAG, "POST_NOTIFICATIONS permission result=$isGranted")
+        DiagnosticLog.i(TAG, "POST_NOTIFICATIONS permission result=$isGranted")
+    }
+
+    private val createReportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) {
+            val saved = DiagnosticLog.export(this, uri)
+            Toast.makeText(this, if (saved) "گزارش تشخیصی ذخیره شد" else "ذخیره گزارش ناموفق بود", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        DiagnosticLog.initialize(this)
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -41,17 +51,17 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            AppShell()
+            AppShell(onExportDiagnostic = { createReportLauncher.launch("optionheatmap-diagnostic.txt") })
         }
     }
 
     private fun startDataService() {
         try {
-            Log.i(TAG, "Requesting DataSyncService start")
+            DiagnosticLog.i(TAG, "Requesting DataSyncService start")
             val intent = Intent(this, DataSyncService::class.java)
             ContextCompat.startForegroundService(this, intent)
         } catch (error: Exception) {
-            Log.e(TAG, "Could not start DataSyncService", error)
+            DiagnosticLog.e(TAG, "Could not start DataSyncService", error)
         }
     }
 

@@ -8,6 +8,21 @@ android {
 
     defaultConfig {
         minSdk = 26
+        buildConfigField("boolean", "TSETMC_TRUST_ALL", "false")
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            // Temporary diagnostic switch. Set to false to disable in Debug builds.
+            buildConfigField("boolean", "TSETMC_TRUST_ALL", "true")
+        }
+        release {
+            buildConfigField("boolean", "TSETMC_TRUST_ALL", "false")
+        }
     }
 
     compileOptions {

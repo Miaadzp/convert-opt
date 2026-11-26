@@ -1,5 +1,6 @@
 package ir.miaad.optionheatmap.core.network
 
+import android.util.Log
 import ir.miaad.optionheatmap.core.monitor.BestLimit1
 import ir.miaad.optionheatmap.core.monitor.DayLimits
 import ir.miaad.optionheatmap.core.monitor.PriceInfo
@@ -17,6 +18,7 @@ class TsetmcApi {
     companion object {
         private const val BASE_URL = "https://cdn.tsetmc.com/api/"
         private const val TIMEOUT_MS = 6_000
+        private const val TAG = "OH-DIAG-HTTP"
     }
 
     suspend fun searchInstruments(symbol: String): List<InstrumentSearchHit> {
@@ -80,20 +82,53 @@ class TsetmcApi {
     }
 
     private suspend fun getJson(path: String): JSONObject = withContext(Dispatchers.IO) {
-        val connection = (URL(BASE_URL + path).openConnection() as HttpURLConnection).apply {
+        val url = BASE_URL + path
+        val startedAt = System.currentTimeMillis()
+        var statusCode: Int? = null
+        var contentType: String? = null
+        var bodyBytes = -1
+        Log.i(TAG, "HTTP_START time=$startedAt url=$url")
+
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "Mozilla/5.0 OptionHeatmap Android")
         }
+
         try {
-            val code = connection.responseCode
-            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            statusCode = connection.responseCode
+            contentType = connection.contentType
+            val stream = if (statusCode in 200..299) connection.inputStream else connection.errorStream
             val body = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw IOException("TSETMC HTTP $code: ${body.take(160)}")
+            bodyBytes = body.toByteArray(Charsets.UTF_8).size
+            val duration = System.currentTimeMillis() - startedAt
+            Log.i(TAG, "HTTP_RESPONSE url=$url status=$statusCode contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration")
+
+            if (statusCode !in 200..299) {
+                throw IOException("TSETMC HTTP $statusCode: ${body.take(160)}")
+            }
             if (body.isBlank()) throw IOException("پاسخ خالی از TSETMC")
-            JSONObject(body)
+
+            val json = try {
+                JSONObject(body)
+            } catch (parseError: Exception) {
+                Log.e(TAG, "JSON_PARSE_ERROR url=$url bodyBytes=$bodyBytes", parseError)
+                throw parseError
+            }
+            Log.i(TAG, "JSON_PARSE_OK url=$url rootKeys=${json.keys().asSequence().toList()}")
+            json
+        } catch (error: Exception) {
+            val duration = System.currentTimeMillis() - startedAt
+            val causes = generateSequence(error as Throwable?) { it.cause }
+                .map { "${it.javaClass.name}: ${it.message}" }
+                .joinToString(" <- ")
+            Log.e(
+                TAG,
+                "HTTP_FAILURE url=$url status=${statusCode ?: "UNAVAILABLE"} contentType=$contentType bodyBytes=$bodyBytes durationMs=$duration exception=${error.javaClass.name} message=${error.message} causes=$causes\n${Log.getStackTraceString(error)}"
+            )
+            throw error
         } finally {
             connection.disconnect()
         }

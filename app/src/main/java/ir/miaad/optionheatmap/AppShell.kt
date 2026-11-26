@@ -1,6 +1,6 @@
 package ir.miaad.optionheatmap
 
-import android.util.Log
+import ir.miaad.optionheatmap.core.diagnostics.DiagnosticLog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,13 +47,13 @@ private const val DIAG_TAG = "OH-DIAG-UI"
 private val TAB_TITLES = listOf("رصد صف", "آپشن", "جزئیات سفارش", "پول هوشمند")
 
 @Composable
-fun AppShell() {
+fun AppShell(onExportDiagnostic: () -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     val snapshots by MonitorDataStore.snapshots.collectAsStateWithLifecycle()
     val rows = remember(snapshots) { snapshots.map { it.toMonitorRow() } }
 
     LaunchedEffect(snapshots) {
-        Log.i(DIAG_TAG, "SNAPSHOT_RECEIVED count=${snapshots.size} " + snapshots.joinToString {
+        DiagnosticLog.i(DIAG_TAG, "SNAPSHOT_RECEIVED count=${snapshots.size} " + snapshots.joinToString {
             "${it.symbol}(priceNull=${it.price == null},priceValue=${it.price?.lastTrade},bestNull=${it.best == null},limitsNull=${it.limits == null},priceStatus=${it.priceHealth.status},bestStatus=${it.bestHealth.status},infoStatus=${it.infoHealth.status})"
         })
     }
@@ -61,6 +62,9 @@ fun AppShell() {
         MaterialTheme(colorScheme = darkColorScheme(background = MonitorColors.Dark, surface = MonitorColors.Dark)) {
             Surface(Modifier.fillMaxSize(), color = MonitorColors.Dark, contentColor = MonitorColors.TextMain) {
                 Column(Modifier.fillMaxSize().systemBarsPadding()) {
+                    Button(onClick = onExportDiagnostic, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Text("ذخیره گزارش تشخیصی")
+                    }
                     Box(Modifier.weight(1f)) {
                         if (tab == 0) MonitorScreen(rows)
                         else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

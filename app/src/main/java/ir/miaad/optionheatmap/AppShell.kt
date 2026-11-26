@@ -1,5 +1,6 @@
 package ir.miaad.optionheatmap
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +42,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
+private const val DIAG_TAG = "OH-DIAG-UI"
 private val TAB_TITLES = listOf("رصد صف", "آپشن", "جزئیات سفارش", "پول هوشمند")
 
 @Composable
@@ -47,6 +50,12 @@ fun AppShell() {
     var tab by remember { mutableIntStateOf(0) }
     val snapshots by MonitorDataStore.snapshots.collectAsStateWithLifecycle()
     val rows = remember(snapshots) { snapshots.map { it.toMonitorRow() } }
+
+    LaunchedEffect(snapshots) {
+        Log.i(DIAG_TAG, "SNAPSHOT_RECEIVED count=${snapshots.size} " + snapshots.joinToString {
+            "${it.symbol}(priceNull=${it.price == null},priceValue=${it.price?.lastTrade},bestNull=${it.best == null},limitsNull=${it.limits == null},priceStatus=${it.priceHealth.status},bestStatus=${it.bestHealth.status},infoStatus=${it.infoHealth.status})"
+        })
+    }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme(colorScheme = darkColorScheme(background = MonitorColors.Dark, surface = MonitorColors.Dark)) {

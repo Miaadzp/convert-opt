@@ -1,5 +1,6 @@
 package ir.miaad.optionheatmap.core.monitor
 
+import android.util.Log
 import ir.miaad.optionheatmap.core.data.InstrumentRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -50,6 +51,7 @@ private class MutableSymbolState(val symbol: String) {
 }
 
 object MonitorDataStore {
+    private const val TAG = "OH-DIAG-Store"
     // نمادهای موقت آزمون اتصال مرحله 3؛ واچ‌لیست نهایی جداگانه ساخته می‌شود.
     private val testSymbols = listOf("فولاد", "وبملت", "گوهر")
     private val states = testSymbols.associateWith(::MutableSymbolState)
@@ -62,23 +64,30 @@ object MonitorDataStore {
 
     suspend fun refreshAll() {
         refreshMutex.withLock {
+            Log.i(TAG, "REFRESH_START symbols=$testSymbols")
             coroutineScope {
                 testSymbols.map { symbol -> async { refreshSymbol(states.getValue(symbol)) } }.forEach { it.await() }
             }
             mutableSnapshots.value = testSymbols.map { states.getValue(it).snapshot() }
+            Log.i(TAG, "SNAPSHOT_PUBLISHED " + mutableSnapshots.value.joinToString { snap ->
+                "${snap.symbol}(price=${snap.price != null},best=${snap.best != null},limits=${snap.limits != null},priceStatus=${snap.priceHealth.status},bestStatus=${snap.bestHealth.status},infoStatus=${snap.infoHealth.status},searchStatus=${snap.searchHealth.status})"
+            })
         }
     }
 
     private suspend fun refreshSymbol(state: MutableSymbolState) {
         val now = System.currentTimeMillis()
+        Log.i(TAG, "SYMBOL_REFRESH_START symbol=${state.symbol} time=$now")
         val insCode = try {
             state.insCode ?: repository.resolveInsCode(state.symbol).also {
                 state.insCode = it
                 state.searchHealth = ApiHealth(DataFreshness.FRESH, now)
+                Log.i(TAG, "API_SUCCESS symbol=${state.symbol} api=InstrumentSearch insCode=$it")
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Throwable) {
+            logFailure(state.symbol, "InstrumentSearch", error)
             state.searchHealth = ApiHealth(DataFreshness.ERROR, state.searchHealth.lastSuccessMs, error.message)
             return
         }
@@ -94,6 +103,10 @@ object MonitorDataStore {
             Triple(info.await(), price.await(), best.await())
         }
 
+        logResult(state.symbol, "InstrumentInfo", results.first)
+        logResult(state.symbol, "ClosingPrice", results.second)
+        logResult(state.symbol, "BestLimits", results.third)
+
         state.infoHealth = results.first.toHealth(now, state.infoHealth.lastSuccessMs)
         state.priceHealth = results.second.toHealth(now, state.priceHealth.lastSuccessMs)
         state.bestHealth = results.third.toHealth(now, state.bestHealth.lastSuccessMs)
@@ -101,7 +114,6 @@ object MonitorDataStore {
         results.second.getOrNull()?.let { state.price = it }
         results.third.getOrNull()?.let { state.best = it }
 
-        // تحلیل و تاریخچه فقط با سه پاسخ موفق در همین چرخه به‌روز می‌شوند.
         if (results.first.isSuccess && results.second.isSuccess && results.third.isSuccess) {
             val tehran = ZonedDateTime.now(ZoneId.of("Asia/Tehran"))
             val input = MonitorInput(
@@ -116,7 +128,24 @@ object MonitorDataStore {
             state.lastCompleteCycleMs = now
             state.queueHistory.add(now to output.queueVolume)
             while (state.queueHistory.size > 225) state.queueHistory.removeAt(0)
+            Log.i(TAG, "ANALYSIS_UPDATED symbol=${state.symbol} time=$now queueVolume=${output.queueVolume}")
+        } else {
+            Log.w(TAG, "ANALYSIS_SKIPPED symbol=${state.symbol} reason=one_or_more_APIs_failed")
         }
+    }
+
+    private fun logResult(symbol: String, api: String, result: Result<*>) {
+        result.fold(
+            onSuccess = { Log.i(TAG, "API_SUCCESS symbol=$symbol api=$api") },
+            onFailure = { logFailure(symbol, api, it) }
+        )
+    }
+
+    private fun logFailure(symbol: String, api: String, error: Throwable) {
+        val causes = generateSequence(error) { it.cause }
+            .map { "${it.javaClass.name}: ${it.message}" }
+            .joinToString(" <- ")
+        Log.e(TAG, "API_FAILURE symbol=$symbol api=$api exception=${error.javaClass.name} message=${error.message} causes=$causes\n${Log.getStackTraceString(error)}")
     }
 
     private fun ApiHealth.pending() = copy(

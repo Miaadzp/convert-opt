@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -18,9 +19,7 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (isGranted) {
-            startDataService()
-        }
+        Log.i(TAG, "POST_NOTIFICATIONS permission result=$isGranted")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,17 +30,14 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
 
-        // درخواست مجوز اعلان در اندروید ۱۳ به بالا
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                startDataService()
-            }
-        } else {
-            startDataService()
+        // شروع سرویس مستقل از مجوز اعلان است؛ مجوز فقط روی نمایش اعلان اثر دارد.
+        startDataService()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         setContent {
@@ -50,8 +46,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startDataService() {
-        val intent = Intent(this, DataSyncService::class.java)
-        ContextCompat.startForegroundService(this, intent)
+        try {
+            Log.i(TAG, "Requesting DataSyncService start")
+            val intent = Intent(this, DataSyncService::class.java)
+            ContextCompat.startForegroundService(this, intent)
+        } catch (error: Exception) {
+            Log.e(TAG, "Could not start DataSyncService", error)
+        }
     }
 
     @Suppress("unused")
@@ -60,5 +61,9 @@ class MainActivity : ComponentActivity() {
             action = DataSyncService.ACTION_STOP
         }
         startService(intent)
+    }
+
+    private companion object {
+        const val TAG = "OH-DIAG-Main"
     }
 }

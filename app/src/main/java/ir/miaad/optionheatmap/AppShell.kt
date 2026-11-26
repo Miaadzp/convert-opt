@@ -67,7 +67,7 @@ fun AppShell() {
 
 private fun MonitorSymbolSnapshot.toMonitorRow(): MonitorRow {
     val side = result?.side ?: QueueSide.NONE
-    val health = "قیمت ${priceHealth.label()} • صف ${bestHealth.label()} • حدود ${infoHealth.label()}"
+    val health = "قیمت ${priceHealth.status.label()} • صف ${bestHealth.status.label()} • حدود ${infoHealth.status.label()}"
     val time = lastCompleteCycleMs?.let {
         val formatter = SimpleDateFormat("HH:mm:ss", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("Asia/Tehran")

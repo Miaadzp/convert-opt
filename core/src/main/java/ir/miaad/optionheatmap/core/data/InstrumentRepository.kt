@@ -1,6 +1,6 @@
 package ir.miaad.optionheatmap.core.data
 
-import android.util.Log
+import ir.miaad.optionheatmap.core.diagnostics.DiagnosticLog
 import ir.miaad.optionheatmap.core.monitor.BestLimit1
 import ir.miaad.optionheatmap.core.monitor.DayLimits
 import ir.miaad.optionheatmap.core.monitor.PriceInfo
@@ -13,19 +13,19 @@ class InstrumentRepository(private val api: TsetmcApi = TsetmcApi()) {
 
     suspend fun resolveInsCode(symbol: String): String {
         instrumentCodes[symbol]?.let {
-            Log.i(TAG, "RESOLVE_CACHE symbol=$symbol insCode=$it")
+            DiagnosticLog.i(TAG, "RESOLVE_CACHE symbol=$symbol insCode=$it")
             return it
         }
         val wanted = normalize(symbol)
-        Log.i(TAG, "RESOLVE_START symbol=$symbol normalized=$wanted")
+        DiagnosticLog.i(TAG, "RESOLVE_START symbol=$symbol normalized=$wanted")
         val hits = api.searchInstruments(symbol)
         val matches = hits.filter { normalize(it.symbol) == wanted }.distinctBy { it.insCode }
-        Log.i(TAG, "RESOLVE_RESULT symbol=$symbol totalHits=${hits.size} exactMatches=${matches.size} candidates=${matches.map { "${it.symbol}:${it.insCode}" }}")
+        DiagnosticLog.i(TAG, "RESOLVE_RESULT symbol=$symbol totalHits=${hits.size} exactMatches=${matches.size} candidates=${matches.map { "${it.symbol}:${it.insCode}" }}")
         if (matches.isEmpty()) throw IOException("نماد دقیق «$symbol» در TSETMC پیدا نشد")
         if (matches.size > 1) throw IOException("برای «$symbol» چند کد دقیق پیدا شد؛ انتخاب خودکار امن نیست")
         return matches.single().insCode.also {
             instrumentCodes[symbol] = it
-            Log.i(TAG, "RESOLVE_SELECTED symbol=$symbol insCode=$it")
+            DiagnosticLog.i(TAG, "RESOLVE_SELECTED symbol=$symbol insCode=$it")
         }
     }
 
